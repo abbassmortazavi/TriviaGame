@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Entity\TriviaQuestion;
+use App\Services\Question\QuestionService;
 use App\Services\QuestionTrivia\TriviaQuestionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
@@ -18,7 +19,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'trivia:start',
-    // name: 'TriviaGameCommand',
     description: 'Add a short description for your command',
 )]
 class TriviaGameCommand extends Command
@@ -36,7 +36,6 @@ class TriviaGameCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-
         $player1 = $this->askForPlayerName($input, $output, 'Player 1');
         $player2 = $this->askForPlayerName($input, $output, 'Player 2');
         $continue = $this->ask($input, $output, 'Do you want to add more new questions Or Start Existing Question in Our database (yes/no): ');
@@ -47,9 +46,9 @@ class TriviaGameCommand extends Command
                 $output->writeln("Your Database Questions is Empty, Please select Yes and add new Questions!! ");
                 exit();
             }
+        } else {
+            $questions = $this->addQuestions($input, $output, $player1);
         }
-
-        $questions = $this->addQuestions($input, $output, $player1);
 
 
         $this->playQuiz($input, $output, $player1, $player2, $questions);
@@ -126,22 +125,21 @@ class TriviaGameCommand extends Command
             $options[] = $this->ask($input, $output, "Enter option $i: ");
         }
 
-        $correctAnswer = $this->ask($input, $output, 'Which option is the correct answer (1-4)? ');
-
+        $correctAnswer = $this->ask($input, $output, 'Which option is the correct answer please write it? ');
 
         $data['player'] = $playerName;
         $data['text'] = $questionText;
         $data['type'] = 'multiple_choice';
         $data['options'] = [
             'options' => $options,
-            'correct_answer' => (int)$correctAnswer,
+            'correct_answer' => $correctAnswer,
         ];
 
         $this->storeQuestion($data);
 
         return [
             'type' => 'multiple_choice',
-            'question' => $questionText,
+            'text' => $questionText,
             'options' => $options,
             'correct_answer' => (int)$correctAnswer,
         ];
@@ -158,15 +156,15 @@ class TriviaGameCommand extends Command
         $questionText = $this->ask($input, $output, 'Enter the True/False question: ');
         $correctAnswer = $this->ask($input, $output, 'Is the answer True or False? ');
 
-        $this->storeQuestion($playerName, $questionText, 'true_false', [
-            'correct_answer' => strtolower($correctAnswer) === 'true',
-        ]);
 
-        return [
-            'type' => 'true_false',
-            'question' => $questionText,
-            'correct_answer' => strtolower($correctAnswer) === 'true',
+        $data['player'] = $playerName;
+        $data['text'] = $questionText;
+        $data['type'] = 'true_false';
+        $data['options'] = [
+            'correct_answer' => $correctAnswer === "true",
         ];
+        $this->storeQuestion($data);
+        return $data;
     }
 
     private function ask(InputInterface $input, OutputInterface $output, $question)
@@ -193,16 +191,15 @@ class TriviaGameCommand extends Command
      */
     private function playQuiz(InputInterface $input, OutputInterface $output, $player1, $player2, array $questions): void
     {
+
         $totalQuestions = count($questions);
-
         $player2Score = 0;
-
         foreach ($questions as $question) {
             $player2Answer = $this->askQuestion($input, $output, $player2, $question);
-            //dd($player2Answer === $question['correct_answer']);
-            if ($question['type'] === 'multiple_choice' && $player2Answer === $question['correct_answer']) {
+            if ($question['type'] === 'multiple_choice' && $player2Answer === $question['options']->correct_answer) {
                 $player2Score++;
-            } elseif ($question['type'] === 'true_false' && $player2Answer === $question['correct_answer']) {
+            } elseif ($question['type'] === 'true_false' && (bool)$player2Answer === $question['options']['correct_answer']) {
+
                 $player2Score++;
             }
         }
@@ -226,13 +223,14 @@ class TriviaGameCommand extends Command
         $helper = $this->getHelper('question');
 
         if ($question['type'] === 'multiple_choice') {
-            $questionText = $question['question'] . "\nOptions: " . implode(', ', $question['options']) . "\nEnter your choice (1-4): ";
-            $question = new ChoiceQuestion($player . ', ' . $questionText, $question['options']);
+
+            $questionText = $question['text'] . "\nOptions: " . implode(', ', $question['options']->options) . "\nwrite Your Answer: ";
+            $question = new ChoiceQuestion($player . ', ' . $questionText, $question['options']->options);
             $question->setErrorMessage('Invalid option.');
 
             return $helper->ask($input, $output, $question);
         } elseif ($question['type'] === 'true_false') {
-            $questionText = $question['question'] . "\nIs the answer True or False? ";
+            $questionText = $question['text'] . "\nIs the answer True or False? ";
             $question = new ChoiceQuestion($player . ', ' . $questionText, ['true', 'false']);
             $question->setErrorMessage('Invalid answer.');
 

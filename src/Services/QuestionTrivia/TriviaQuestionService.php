@@ -17,6 +17,7 @@ class TriviaQuestionService implements TriviaQuestionInterface
      */
     public function store(array $attributes): void
     {
+
         $entityManager = $this->doctrine->getManager();
 
         $entity = new TriviaQuestion();
@@ -41,7 +42,7 @@ class TriviaQuestionService implements TriviaQuestionInterface
                 'id' => $question->getId(),
                 'text' => $question->getQuestionText(),
                 'type' => $question->getType(),
-                'options' => json_decode($question->getOptions()),
+                'options' => (array)json_decode($question->getOptions()),
             ];
         }
         return $data;
