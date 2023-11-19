@@ -42,7 +42,7 @@ class TriviaQuestionService implements TriviaQuestionInterface
                 'id' => $question->getId(),
                 'text' => $question->getQuestionText(),
                 'type' => $question->getType(),
-                'options' => (array)json_decode($question->getOptions()),
+                'options' => json_decode($question->getOptions(), true),
             ];
         }
         return $data;

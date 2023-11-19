@@ -134,15 +134,8 @@ class TriviaGameCommand extends Command
             'options' => $options,
             'correct_answer' => $correctAnswer,
         ];
-
         $this->storeQuestion($data);
-
-        return [
-            'type' => 'multiple_choice',
-            'text' => $questionText,
-            'options' => $options,
-            'correct_answer' => (int)$correctAnswer,
-        ];
+        return $data;
     }
 
     /**
@@ -155,7 +148,6 @@ class TriviaGameCommand extends Command
     {
         $questionText = $this->ask($input, $output, 'Enter the True/False question: ');
         $correctAnswer = $this->ask($input, $output, 'Is the answer True or False? ');
-
 
         $data['player'] = $playerName;
         $data['text'] = $questionText;
@@ -191,15 +183,13 @@ class TriviaGameCommand extends Command
      */
     private function playQuiz(InputInterface $input, OutputInterface $output, $player1, $player2, array $questions): void
     {
-
         $totalQuestions = count($questions);
         $player2Score = 0;
         foreach ($questions as $question) {
             $player2Answer = $this->askQuestion($input, $output, $player2, $question);
-            if ($question['type'] === 'multiple_choice' && $player2Answer === $question['options']->correct_answer) {
+            if ($question['type'] === 'multiple_choice' && $player2Answer === $question['options']['correct_answer']) {
                 $player2Score++;
             } elseif ($question['type'] === 'true_false' && (bool)$player2Answer === $question['options']['correct_answer']) {
-
                 $player2Score++;
             }
         }
@@ -223,9 +213,8 @@ class TriviaGameCommand extends Command
         $helper = $this->getHelper('question');
 
         if ($question['type'] === 'multiple_choice') {
-
-            $questionText = $question['text'] . "\nOptions: " . implode(', ', $question['options']->options) . "\nwrite Your Answer: ";
-            $question = new ChoiceQuestion($player . ', ' . $questionText, $question['options']->options);
+            $questionText = $question['text'] . "\nOptions: " . implode(', ', $question['options']['options']) . "\nwrite Your Answer: ";
+            $question = new ChoiceQuestion($player . ', ' . $questionText, $question['options']['options']);
             $question->setErrorMessage('Invalid option.');
 
             return $helper->ask($input, $output, $question);
