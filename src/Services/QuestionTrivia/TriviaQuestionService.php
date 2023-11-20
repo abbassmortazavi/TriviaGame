@@ -17,7 +17,6 @@ class TriviaQuestionService implements TriviaQuestionInterface
      */
     public function store(array $attributes): void
     {
-
         $entityManager = $this->doctrine->getManager();
 
         $entity = new TriviaQuestion();
