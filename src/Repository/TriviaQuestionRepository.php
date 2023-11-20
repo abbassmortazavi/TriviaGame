@@ -21,6 +21,30 @@ class TriviaQuestionRepository extends ServiceEntityRepository
         parent::__construct($registry, TriviaQuestion::class);
     }
 
+    /**
+     * @return TriviaQuestion[]
+     */
+    public function get(): array
+    {
+        return $this->findAll();
+    }
+
+    /**
+     * @param array $attributes
+     * @return void
+     */
+    public function store(array $attributes): void
+    {
+        $entityManager = $this->getEntityManager();
+        $entity = new TriviaQuestion();
+        $entity->setPlayerName($attributes['player']);
+        $entity->setQuestionText($attributes['text']);
+        $entity->setType($attributes['type']);
+        $entity->setOptions(json_encode($attributes['options']));
+
+        $entityManager->persist($entity);
+        $entityManager->flush();
+    }
 //    /**
 //     * @return TriviaQuestion[] Returns an array of TriviaQuestion objects
 //     */

@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Enums\QuestionType;
 use App\Services\QuestionTrivia\TriviaQuestionService;
 use App\Strategy\QuestionStrategy;
 use Exception;
@@ -91,7 +92,7 @@ class TriviaGameCommand extends Command
     private function askQuestionType(InputInterface $input, OutputInterface $output): mixed
     {
         $helper = $this->getHelper('question');
-        $question = new ChoiceQuestion('Select the question type:', ['multiple_choice', 'true_false']);
+        $question = new ChoiceQuestion('Select the question type:', [QuestionType::CHOICE->value, QuestionType::TRUEFALSE->value]);
         $question->setErrorMessage('Invalid question type.');
         return $helper->ask($input, $output, $question);
     }
@@ -120,9 +121,9 @@ class TriviaGameCommand extends Command
         $player2Score = 0;
         foreach ($questions as $question) {
             $player2Answer = $this->askQuestion($input, $output, $player2, $question);
-            if ($question['type'] === 'multiple_choice' && $player2Answer === $question['options']['correct_answer']) {
+            if ($question['type'] === QuestionType::CHOICE->value && $player2Answer === $question['options']['correct_answer']) {
                 $player2Score++;
-            } elseif ($question['type'] === 'true_false' && (bool)$player2Answer === $question['options']['correct_answer']) {
+            } elseif ($question['type'] === QuestionType::TRUEFALSE->value && (bool)$player2Answer === $question['options']['correct_answer']) {
                 $player2Score++;
             }
         }
@@ -143,12 +144,12 @@ class TriviaGameCommand extends Command
     private function askQuestion(InputInterface $input, OutputInterface $output, $player, $question)
     {
         $helper = $this->getHelper('question');
-        if ($question['type'] === 'multiple_choice') {
+        if ($question['type'] === QuestionType::CHOICE->value) {
             $questionText = $question['text'] . "\nOptions: " . implode(', ', $question['options']['options']) . "\nwrite Your Answer: ";
             $question = new ChoiceQuestion($player . ', ' . $questionText, $question['options']['options']);
             $question->setErrorMessage('Invalid option.');
             return $helper->ask($input, $output, $question);
-        } elseif ($question['type'] === 'true_false') {
+        } elseif ($question['type'] === QuestionType::TRUEFALSE->value) {
             $questionText = $question['text'] . "\nIs the answer True or False? ";
             $question = new ChoiceQuestion($player . ', ' . $questionText, ['true', 'false']);
             $question->setErrorMessage('Invalid answer.');

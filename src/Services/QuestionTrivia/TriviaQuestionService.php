@@ -3,11 +3,15 @@
 namespace App\Services\QuestionTrivia;
 
 use App\Entity\TriviaQuestion;
-use Doctrine\Persistence\ManagerRegistry;
+use App\Repository\TriviaQuestionRepository;
 
 class TriviaQuestionService implements TriviaQuestionInterface
 {
-    public function __construct(protected TriviaQuestion $triviaQuestion, protected ManagerRegistry $doctrine)
+    /**
+     * @param TriviaQuestion $triviaQuestion
+     * @param TriviaQuestionRepository $triviaQuestionRepository
+     */
+    public function __construct(protected TriviaQuestion $triviaQuestion, protected TriviaQuestionRepository $triviaQuestionRepository)
     {
     }
 
@@ -17,16 +21,7 @@ class TriviaQuestionService implements TriviaQuestionInterface
      */
     public function store(array $attributes): void
     {
-        $entityManager = $this->doctrine->getManager();
-
-        $entity = new TriviaQuestion();
-        $entity->setPlayerName($attributes['player']);
-        $entity->setQuestionText($attributes['text']);
-        $entity->setType($attributes['type']);
-        $entity->setOptions(json_encode($attributes['options']));
-
-        $entityManager->persist($entity);
-        $entityManager->flush();
+        $this->triviaQuestionRepository->store($attributes);
     }
 
     /**
@@ -34,7 +29,7 @@ class TriviaQuestionService implements TriviaQuestionInterface
      */
     public function get(): array
     {
-        $questions = $this->doctrine->getRepository(TriviaQuestion::class)->findAll();
+        $questions = $this->triviaQuestionRepository->get();
         $data = [];
         foreach ($questions as $question) {
             $data[] = [

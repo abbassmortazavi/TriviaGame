@@ -9,8 +9,14 @@ use Symfony\Component\Console\Question\Question;
 
 class TrueFalseQuestion implements GenerateQuestionStrategy
 {
-
-    public function generate(InputInterface $input, OutputInterface $output, $playerName, $triviaQuestionService)
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @param $playerName
+     * @param $triviaQuestionService
+     * @return mixed
+     */
+    public function generate(InputInterface $input, OutputInterface $output, $playerName, $triviaQuestionService): mixed
     {
         $questionText = $this->ask($input, $output, 'Enter the True/False question: ');
         $correctAnswer = $this->ask($input, $output, 'Is the answer True or False? ');
@@ -25,7 +31,13 @@ class TrueFalseQuestion implements GenerateQuestionStrategy
         return $data;
     }
 
-    private function ask(InputInterface $input, OutputInterface $output, $question)
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @param $question
+     * @return mixed
+     */
+    private function ask(InputInterface $input, OutputInterface $output, $question): mixed
     {
         $questionHelper = new QuestionHelper();
         return $questionHelper->ask($input, $output, new Question($question));
