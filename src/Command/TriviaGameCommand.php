@@ -2,20 +2,15 @@
 
 namespace App\Command;
 
-use App\Entity\TriviaQuestion;
-use App\Services\Question\QuestionService;
 use App\Services\QuestionTrivia\TriviaQuestionService;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ManagerRegistry;
+use App\Strategy\QuestionStrategy;
+use Exception;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'trivia:start',
@@ -23,8 +18,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class TriviaGameCommand extends Command
 {
-
-    public function __construct(protected EntityManagerInterface $entityManager, protected ManagerRegistry $doctrine, protected TriviaQuestion $question, protected TriviaQuestionService $triviaQuestionService)
+    /**
+     * @param TriviaQuestionService $triviaQuestionService
+     * @param QuestionStrategy $strategy
+     */
+    public function __construct(protected TriviaQuestionService $triviaQuestionService, protected QuestionStrategy $strategy)
     {
         parent::__construct();
     }
@@ -33,6 +31,7 @@ class TriviaGameCommand extends Command
      * @param InputInterface $input
      * @param OutputInterface $output
      * @return int
+     * @throws Exception
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -49,10 +48,7 @@ class TriviaGameCommand extends Command
         } else {
             $questions = $this->addQuestions($input, $output, $player1);
         }
-
-
-        $this->playQuiz($input, $output, $player1, $player2, $questions);
-
+        $this->playQuiz($input, $output, $player2, $questions);
         return Command::SUCCESS;
     }
 
@@ -74,25 +70,16 @@ class TriviaGameCommand extends Command
      * @param OutputInterface $output
      * @param string $playerName
      * @return array
+     * @throws Exception
      */
     private function addQuestions(InputInterface $input, OutputInterface $output, string $playerName): array
     {
         $questions = [];
-
         do {
             $questionType = $this->askQuestionType($input, $output);
-            switch ($questionType) {
-                case 'multiple_choice':
-                    $questions[] = $this->addMultipleChoiceQuestion($input, $output, $playerName);
-                    break;
-                case 'true_false':
-                    $questions[] = $this->addTrueFalseQuestion($input, $output, $playerName);
-                    break;
-            }
+            $questions[] = $this->strategy->generateQuestion($questionType, $input, $output, $playerName, $this->triviaQuestionService);
             $continue = $this->ask($input, $output, 'Do you want to add more questions? (yes/no): ');
-
         } while (strtolower($continue) === 'yes');
-
         return $questions;
     }
 
@@ -106,82 +93,28 @@ class TriviaGameCommand extends Command
         $helper = $this->getHelper('question');
         $question = new ChoiceQuestion('Select the question type:', ['multiple_choice', 'true_false']);
         $question->setErrorMessage('Invalid question type.');
-
         return $helper->ask($input, $output, $question);
     }
 
     /**
      * @param InputInterface $input
      * @param OutputInterface $output
-     * @param $playerName
-     * @return array
+     * @param $question
+     * @return mixed
      */
-    private function addMultipleChoiceQuestion(InputInterface $input, OutputInterface $output, $playerName): array
-    {
-        $questionText = $this->ask($input, $output, 'Enter the multiple-choice question: ');
-        $options = [];
-
-        for ($i = 1; $i <= 4; $i++) {
-            $options[] = $this->ask($input, $output, "Enter option $i: ");
-        }
-
-        $correctAnswer = $this->ask($input, $output, 'Which option is the correct answer please write it? ');
-
-        $data['player'] = $playerName;
-        $data['text'] = $questionText;
-        $data['type'] = 'multiple_choice';
-        $data['options'] = [
-            'options' => $options,
-            'correct_answer' => $correctAnswer,
-        ];
-        $this->storeQuestion($data);
-        return $data;
-    }
-
-    /**
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     * @param $playerName
-     * @return array
-     */
-    private function addTrueFalseQuestion(InputInterface $input, OutputInterface $output, $playerName): array
-    {
-        $questionText = $this->ask($input, $output, 'Enter the True/False question: ');
-        $correctAnswer = $this->ask($input, $output, 'Is the answer True or False? ');
-
-        $data['player'] = $playerName;
-        $data['text'] = $questionText;
-        $data['type'] = 'true_false';
-        $data['options'] = [
-            'correct_answer' => $correctAnswer === "true",
-        ];
-        $this->storeQuestion($data);
-        return $data;
-    }
-
-    private function ask(InputInterface $input, OutputInterface $output, $question)
+    private function ask(InputInterface $input, OutputInterface $output, $question): mixed
     {
         return $this->getHelper('question')->ask($input, $output, new Question($question));
     }
 
     /**
-     * @param array $attributes
-     * @return void
-     */
-    private function storeQuestion(array $attributes): void
-    {
-        $this->triviaQuestionService->store($attributes);
-    }
-
-    /**
      * @param InputInterface $input
      * @param OutputInterface $output
-     * @param $player1
      * @param $player2
      * @param array $questions
      * @return void
      */
-    private function playQuiz(InputInterface $input, OutputInterface $output, $player1, $player2, array $questions): void
+    private function playQuiz(InputInterface $input, OutputInterface $output, $player2, array $questions): void
     {
         $totalQuestions = count($questions);
         $player2Score = 0;
@@ -193,7 +126,6 @@ class TriviaGameCommand extends Command
                 $player2Score++;
             }
         }
-
         $output->writeln("\nResults for $player2:");
         $output->writeln("Total Questions: $totalQuestions");
         $output->writeln("Correct Answers: $player2Score");
@@ -211,22 +143,17 @@ class TriviaGameCommand extends Command
     private function askQuestion(InputInterface $input, OutputInterface $output, $player, $question)
     {
         $helper = $this->getHelper('question');
-
         if ($question['type'] === 'multiple_choice') {
             $questionText = $question['text'] . "\nOptions: " . implode(', ', $question['options']['options']) . "\nwrite Your Answer: ";
             $question = new ChoiceQuestion($player . ', ' . $questionText, $question['options']['options']);
             $question->setErrorMessage('Invalid option.');
-
             return $helper->ask($input, $output, $question);
         } elseif ($question['type'] === 'true_false') {
             $questionText = $question['text'] . "\nIs the answer True or False? ";
             $question = new ChoiceQuestion($player . ', ' . $questionText, ['true', 'false']);
             $question->setErrorMessage('Invalid answer.');
-
             return $helper->ask($input, $output, $question);
         }
-
         return null;
     }
-
 }
